@@ -1695,6 +1695,15 @@
 #define wxUSE_NATIVE_DATAVIEWCTRL 0
 #define wxUSE_XTEST 0
 
+// This option is new and instructs DPI support.
+// 0 = No DPI support... and if it's not set at all, it's the default.
+// 1 = DPI Aware
+// 2 = DPI Aware Per Monitor V2
+//
+// For more information, this has a decent rundown:
+// https://blogs.windows.com/windowsdeveloper/2017/04/04/high-dpi-scaling-improvements-desktop-applications-windows-10-creators-update/
+#define wxUSE_DPI_AWARE_MANIFEST 2
+
 // Set to 1 if you need to include <winsock2.h> over <winsock.h>
 //
 // Default is 0.
