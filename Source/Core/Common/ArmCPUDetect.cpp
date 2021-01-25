@@ -5,9 +5,16 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <unistd.h>
+
+#ifndef __APPLE__
+#ifndef _WIN32
+#ifndef __FreeBSD__
 #include <asm/hwcap.h>
+#endif
 #include <sys/auxv.h>
+#include <unistd.h>
+#endif
+#endif
 
 #include "Common/CommonTypes.h"
 #include "Common/CPUDetect.h"
@@ -56,6 +63,16 @@ void CPUInfo::Detect()
 	Mode64bit = true;
 	vendor = VENDOR_ARM;
 
+    // The M series has all this already...
+#ifdef __APPLE__
+    num_cores = std::thread::hardware_concurrency();
+    bFP = true;
+    bASIMD = true;
+    bAES = true;
+    bSHA1 = true;
+    bSHA2 = true;
+    bCRC32 = true;
+#else
 	// Get the information about the CPU
 	num_cores = sysconf(_SC_NPROCESSORS_CONF);
 	strncpy(cpu_string, GetCPUString().c_str(), sizeof(cpu_string));
@@ -67,6 +84,7 @@ void CPUInfo::Detect()
 	bCRC32 = hwcaps & HWCAP_CRC32;
 	bSHA1 = hwcaps & HWCAP_SHA1;
 	bSHA2 = hwcaps & HWCAP_SHA2;
+#endif
 }
 
 // Turn the CPU info into a string we can show

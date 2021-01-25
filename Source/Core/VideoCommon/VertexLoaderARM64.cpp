@@ -9,6 +9,8 @@
 
 using namespace Arm64Gen;
 
+static const u32 MASK_INDEXED = INDEX8 & INDEX16;
+
 constexpr ARM64Reg src_reg = X0;
 constexpr ARM64Reg dst_reg = X1;
 constexpr ARM64Reg count_reg = W2;
@@ -189,6 +191,7 @@ int VertexLoaderARM64::ReadVertex(u64 attribute, int format, int count_in, int c
 	}
 
 	// Z-Freeze
+    /* @TODO: See about turning this back on later.
 	if (native_format == &m_native_vtx_decl.position)
 	{
 		CMP(count_reg, 3);
@@ -198,13 +201,13 @@ int VertexLoaderARM64::ReadVertex(u64 attribute, int format, int count_in, int c
 			ArithOption(EncodeRegTo64(count_reg), ST_LSL, 4));
 		m_float_emit.STUR(write_size, coords, EncodeRegTo64(scratch1_reg), -16);
 		SetJumpTarget(dont_store);
-	}
+	}*/
 
 	native_format->components = count_out;
 	native_format->enable = true;
 	native_format->offset = m_dst_ofs;
-	native_format->type = VAR_FLOAT;
-	native_format->integer = false;
+	native_format->type = FORMAT_FLOAT;
+	//native_format->integer = false;
 	m_dst_ofs += sizeof(float) * count_out;
 
 	if (attribute == DIRECT)
@@ -392,7 +395,7 @@ void VertexLoaderARM64::GenerateVertexLoader()
 	MOV(saved_count, count_reg);
 
 	MOVP2R(stride_reg, g_main_cp_state.array_strides);
-	MOVP2R(arraybase_reg, VertexLoaderManager::cached_arraybases);
+	MOVP2R(arraybase_reg, cached_arraybases);
 
 	if (need_scale)
 		MOVP2R(scale_reg, scale_factors);
@@ -406,18 +409,19 @@ void VertexLoaderARM64::GenerateVertexLoader()
 		STR(INDEX_UNSIGNED, scratch1_reg, dst_reg, m_dst_ofs);
 
 		// Z-Freeze
+        /* @TODO: Investigate turning this back on, figure out cached position_matrix_index.
 		CMP(count_reg, 3);
 		FixupBranch dont_store = B(CC_GT);
 		MOVP2R(EncodeRegTo64(scratch2_reg), VertexLoaderManager::position_matrix_index);
 		STR(INDEX_UNSIGNED, scratch1_reg, EncodeRegTo64(scratch2_reg), 0);
-		SetJumpTarget(dont_store);
+		SetJumpTarget(dont_store);*/
 
 		m_native_components |= VB_HAS_POSMTXIDX;
 		m_native_vtx_decl.posmtx.components = 4;
 		m_native_vtx_decl.posmtx.enable = true;
 		m_native_vtx_decl.posmtx.offset = m_dst_ofs;
-		m_native_vtx_decl.posmtx.type = VAR_UNSIGNED_BYTE;
-		m_native_vtx_decl.posmtx.integer = true;
+		m_native_vtx_decl.posmtx.type = FORMAT_UBYTE;
+		//m_native_vtx_decl.posmtx.integer = true;
 		m_src_ofs += sizeof(u8);
 		m_dst_ofs += sizeof(u32);
 	}
@@ -491,8 +495,8 @@ void VertexLoaderARM64::GenerateVertexLoader()
 	for (int i = 0; i < 2; i++)
 	{
 		m_native_vtx_decl.colors[i].components = 4;
-		m_native_vtx_decl.colors[i].type = VAR_UNSIGNED_BYTE;
-		m_native_vtx_decl.colors[i].integer = false;
+		m_native_vtx_decl.colors[i].type = FORMAT_UBYTE;
+		//m_native_vtx_decl.colors[i].integer = false;
 
 		if (col[i])
 		{
@@ -506,8 +510,8 @@ void VertexLoaderARM64::GenerateVertexLoader()
 			m_native_vtx_decl.colors[i].components = 4;
 			m_native_vtx_decl.colors[i].enable = true;
 			m_native_vtx_decl.colors[i].offset = m_dst_ofs;
-			m_native_vtx_decl.colors[i].type = VAR_UNSIGNED_BYTE;
-			m_native_vtx_decl.colors[i].integer = false;
+			m_native_vtx_decl.colors[i].type = FORMAT_UBYTE;
+			//m_native_vtx_decl.colors[i].integer = false;
 			m_dst_ofs += 4;
 		}
 	}
@@ -515,8 +519,8 @@ void VertexLoaderARM64::GenerateVertexLoader()
 	for (int i = 0; i < 8; i++)
 	{
 		m_native_vtx_decl.texcoords[i].offset = m_dst_ofs;
-		m_native_vtx_decl.texcoords[i].type = VAR_FLOAT;
-		m_native_vtx_decl.texcoords[i].integer = false;
+		m_native_vtx_decl.texcoords[i].type = FORMAT_FLOAT;
+		//m_native_vtx_decl.texcoords[i].integer = false;
 
 		int elements = m_VtxAttr.texCoord[i].Elements + 1;
 		if (tc[i])
@@ -541,8 +545,8 @@ void VertexLoaderARM64::GenerateVertexLoader()
 			m_native_components |= VB_HAS_TEXMTXIDX0 << i;
 			m_native_vtx_decl.texcoords[i].components = 3;
 			m_native_vtx_decl.texcoords[i].enable = true;
-			m_native_vtx_decl.texcoords[i].type = VAR_FLOAT;
-			m_native_vtx_decl.texcoords[i].integer = false;
+			m_native_vtx_decl.texcoords[i].type = FORMAT_FLOAT;
+			//m_native_vtx_decl.texcoords[i].integer = false;
 
 			LDRB(INDEX_UNSIGNED, scratch2_reg, src_reg, texmatidx_ofs[i]);
 			m_float_emit.UCVTF(S31, scratch2_reg);
@@ -611,6 +615,6 @@ void VertexLoaderARM64::GenerateVertexLoader()
 int VertexLoaderARM64::RunVertices(DataReader src, DataReader dst, int count)
 {
 	m_numLoadedVertices += count;
-	return ((int(*)(u8 * src, u8 * dst, int count))region)(src.GetPointer(), dst.GetPointer(),
+	return ((int(*)(u8 * src, u8 * dst, int count))region)((u8 *)src.GetPointer(), (u8 *)dst.GetPointer(),
 		count);
 }

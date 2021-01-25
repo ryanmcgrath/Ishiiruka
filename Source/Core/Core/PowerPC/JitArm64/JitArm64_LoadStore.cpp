@@ -446,7 +446,9 @@ void JitArm64::lXX(UGeckoInstruction inst)
 	SafeLoadToReg(d, update ? a : (a ? a : -1), offsetReg, flags, offset, update);
 
 	// LWZ idle skipping
-	if (SConfig::GetInstance().bSkipIdle &&
+    // @TODO: Fairly certain bSkipIdle is always false in Slippi, since... well, we don't have it.
+    // But come back to confirm this.
+	/*if (SConfig::GetInstance().bSkipIdle &&
 	    inst.OPCD == 32 && MergeAllowedNextInstructions(2) &&
 	    (inst.hex & 0xFFFF0000) == 0x800D0000 && // lwz r0, XXXX(r13)
 	    (js.op[1].inst.hex == 0x28000000 ||
@@ -474,7 +476,7 @@ void JitArm64::lXX(UGeckoInstruction inst)
 		SwitchToNearCode();
 
 		SetJumpTarget(noIdle);
-	}
+	}*/
 }
 
 void JitArm64::stX(UGeckoInstruction inst)
@@ -766,7 +768,8 @@ void JitArm64::dcbx(UGeckoInstruction inst)
 		m_float_emit.ABI_PushRegisters(fprs_to_push, X30);
 
 		LSL(W0, addr, 5);
-		MOVI2R(X1, (u64)DSP::FlushInstantDMA);
+		// @TODO: Come back to figure out how to handle this I guess
+        //MOVI2R(X1, (u64)DSP::FlushInstantDMA);
 		BLR(X1);
 
 		m_float_emit.ABI_PopRegisters(fprs_to_push, X30);

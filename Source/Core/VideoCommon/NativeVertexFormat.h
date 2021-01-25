@@ -16,7 +16,7 @@
 enum
 {
 	//VB_HAS_POS=(1 << 0), // Implied, it always has pos! don't bother testing
-	//VB_HAS_POSMTXIDX = (1 << 1), // Implied, always used
+	VB_HAS_POSMTXIDX = (1 << 1), // Implied, always used
 	VB_HAS_TEXMTXIDX0 = (1 << 0),
 	VB_HAS_TEXMTXIDX1 = (1 << 1),
 	VB_HAS_TEXMTXIDX2 = (1 << 2),
