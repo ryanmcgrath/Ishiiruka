@@ -2,6 +2,7 @@
 # General setup
 #
 cmake_minimum_required(VERSION 2.8.8)
+set(CMAKE_OSX_DEPLOYMENT_TARGET "11.1")
 project(dolphin-emu)
 
 set(CMAKE_CXX_STANDARD 14)
@@ -209,7 +210,6 @@ else()
 endif()
 
 include(CheckCCompilerFlag)
-message("LOL: ${CMAKE_SYSTEM_PROCESSOR}")
 if(ENABLE_GENERIC)
 	message("Warning! Building generic build!")
 	set(_M_GENERIC 1)
@@ -312,9 +312,9 @@ if(APPLE)
         # This is inserted into the Info.plist as well.
         # Note that the SDK determines the maximum version of which optional
         # features can be used, not the minimum required version to run.
-        set(OSX_MIN_VERSION "11.0")
+        set(OSX_MIN_VERSION "11.1")
         #set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk")
-        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.1")
     else()
 	    # Identify the target system:
 	    # Ask for 64-bit binary.
@@ -326,16 +326,16 @@ if(APPLE)
         set(OSX_MIN_VERSION "10.13")
         #set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk")
         set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+        
+        set(TARGET_FLAGS "${TARGET_FLAGS} -mssse3")
+        set(TARGET_FLAGS "${TARGET_FLAGS} -march=core2")
     endif()
 
 	set(TARGET_FLAGS "${TARGET_FLAGS} -mmacosx-version-min=${OSX_MIN_VERSION}")
 	# Do not warn about frameworks that are not available on all architectures.
 	# This avoids a warning when linking with QuickTime.
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no_arch_warnings")
-	# Specify target CPUs.
-    #set(TARGET_FLAGS "${TARGET_FLAGS} -mssse3")
-    #set(TARGET_FLAGS "${TARGET_FLAGS} -march=core2")
-
+	
 	# Target flags apply to both C and C++ compilation.
 	# CMake passes these to the compiler on the link command line as well.
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${TARGET_FLAGS}")
