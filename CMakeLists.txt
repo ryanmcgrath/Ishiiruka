@@ -20,7 +20,13 @@ option(ENABLE_GENERIC "Enables generic build that should run on any little-endia
 option(ENABLE_HEADLESS "Enables running Dolphin as a headless variant" OFF)
 option(ENABLE_ALSA "Enables ALSA sound backend" ON)
 option(ENABLE_AO "Enables libao sound backend" ON)
-option(ENABLE_PULSEAUDIO "Enables PulseAudio sound backend" ON)
+
+if(NOT APPLE)
+    option(ENABLE_PULSEAUDIO "Enables PulseAudio sound backend" ON)
+else()
+    option(ENABLE_PULSEAUDIO "Enables PulseAudio sound backend" ON)
+endif()
+
 option(ENABLE_OPENAL "Enables OpenAL sound backend" ON)
 option(ENABLE_LLVM "Enables LLVM support, for disassembly" ON)
 option(ENABLE_BLUEZ "Enables bluetooth support" ON)
@@ -56,6 +62,7 @@ if(APPLE)
 	option(MACOS_USE_DEFAULT_SEARCH_PATH "Don't prioritize system library paths" OFF)
 	option(MACOS_CODE_SIGNING "Enable codesigning" OFF)
 	set(MACOS_CODE_SIGNING_IDENTITY "The identity used for codesigning." CACHE STRING "")
+	option(SKIP_POSTPROCESS_BUNDLE "Skip postprocessing bundle for redistributability" OFF)
 	set(CMAKE_FIND_FRAMEWORK LAST)
 	set(CMAKE_FIND_APPBUNDLE LAST)
 endif()
@@ -69,9 +76,6 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 	option(VTUNE "Enable Intel VTune integration for JIT symbols." OFF)
 endif()
 
-if(APPLE)
-	option(SKIP_POSTPROCESS_BUNDLE "Skip postprocessing bundle for redistributability" OFF)
-endif()
 ########################################
 # Optional Targets
 # TODO: Add DSPSpy
@@ -205,6 +209,7 @@ else()
 endif()
 
 include(CheckCCompilerFlag)
+message("LOL: ${CMAKE_SYSTEM_PROCESSOR}")
 if(ENABLE_GENERIC)
 	message("Warning! Building generic build!")
 	set(_M_GENERIC 1)
@@ -212,8 +217,7 @@ if(ENABLE_GENERIC)
 elseif(_ARCH_64 AND (
 	${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR
 	${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86" OR
-	${CMAKE_SYSTEM_PROCESSOR} MATCHES "amd64" OR
-	APPLE
+	${CMAKE_SYSTEM_PROCESSOR} MATCHES "amd64"
 ))
 	set(_M_X86 1)
 	set(_M_X86_64 1)
@@ -229,7 +233,7 @@ elseif(_ARCH_64 AND (
 			set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nopie")
 		endif()
 	endif()
-elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
+elseif(_ARCH_64 AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64|arm64")
 	set(_M_ARM 1)
 	set(_M_ARM_64 1)
 	add_definitions(-D_M_ARM=1 -D_M_ARM_64=1)
@@ -298,23 +302,40 @@ if(APPLE)
 		set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/usr")
 	endif()
 
-	# Identify the target system:
-	# Ask for 64-bit binary.
-	set(TARGET_FLAGS "-arch x86_64")
-	# Minimum OS X version.
-	# This is inserted into the Info.plist as well.
-	# Note that the SDK determines the maximum version of which optional
-	# features can be used, not the minimum required version to run.
-	set(OSX_MIN_VERSION "10.13")
-	set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk")
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+    # For Apple Silicon, we need to branch and specify ARM + a different deployment
+    # version, otherwise things will go bonkers and produce an invalid Mach-O header.
+    if(_ARCH_64 AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64")
+	    # Identify the target system:
+	    # Ask for 64-bit binary.
+	    set(TARGET_FLAGS "-arch arm64")
+        # Minimum OS X version.
+        # This is inserted into the Info.plist as well.
+        # Note that the SDK determines the maximum version of which optional
+        # features can be used, not the minimum required version to run.
+        set(OSX_MIN_VERSION "11.0")
+        #set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk")
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
+    else()
+	    # Identify the target system:
+	    # Ask for 64-bit binary.
+	    set(TARGET_FLAGS "-arch aarch64")
+        # Minimum OS X version.
+        # This is inserted into the Info.plist as well.
+        # Note that the SDK determines the maximum version of which optional
+        # features can be used, not the minimum required version to run.
+        set(OSX_MIN_VERSION "10.13")
+        #set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk")
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+    endif()
+
 	set(TARGET_FLAGS "${TARGET_FLAGS} -mmacosx-version-min=${OSX_MIN_VERSION}")
 	# Do not warn about frameworks that are not available on all architectures.
 	# This avoids a warning when linking with QuickTime.
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no_arch_warnings")
 	# Specify target CPUs.
-	set(TARGET_FLAGS "${TARGET_FLAGS} -mssse3")
-	set(TARGET_FLAGS "${TARGET_FLAGS} -march=core2")
+    #set(TARGET_FLAGS "${TARGET_FLAGS} -mssse3")
+    #set(TARGET_FLAGS "${TARGET_FLAGS} -march=core2")
+
 	# Target flags apply to both C and C++ compilation.
 	# CMake passes these to the compiler on the link command line as well.
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${TARGET_FLAGS}")
@@ -586,7 +607,9 @@ if(ENCODE_FRAMEDUMPS)
 
 endif()
 
-if(NOT ANDROID)
+# Just ignore this on Apple, not entirely sure why it ever needed to
+# check for PortAudio anyway.
+if(NOT ANDROID AND NOT APPLE)
 	set(PORTAUDIO_FOUND TRUE)
 	add_definitions(-DHAVE_PORTAUDIO=1)
 
@@ -754,9 +777,12 @@ else()
 endif()
 list(APPEND LIBS ${LZO})
 
-if(NOT APPLE)
-	check_lib(PNG libpng png png.h QUIET)
-endif()
+# I assume that the Externals libpng was chosen at some point in time for... some reason,
+# but things work fine if we just default to the built-in one, and this works better for ARM
+# as well.
+#if(NOT APPLE)
+check_lib(PNG libpng png png.h QUIET)
+#endif()
 if (PNG_FOUND)
 	message("Using shared libpng")
 else()
