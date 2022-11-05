@@ -5,24 +5,40 @@
 #pragma once
 
 #include <string>
+
+// Mainline doesn't include this, but we need to import it so things function
+// as they would in Ishiiruka with respect to other files relying on this being here.
 #include "Common/ChunkFile.h"
+
+#include "Common/CommonTypes.h"
 #include "Core/MachineContext.h"
-#include "Core/PowerPC/CPUCoreBase.h"
-#include "Core/PowerPC/Profiler.h"
+
+class CPUCoreBase;
+class PointerWrap;
+struct ProfileStats;
 
 namespace JitInterface
 {
-enum class ExceptionType
+// Mainline ExceptionType adapted for Ishiiruka
+enum ExceptionType
 {
 	EXCEPTIONS_FIFO_WRITE,
-	EXCEPTIONS_PAIRED_QUANTIZE
+	EXCEPTIONS_PAIRED_QUANTIZE,
+    SPECULATIVE_CONSTANTS
 };
 
-void DoState(PointerWrap &p);
+/*mainline
+ * enum class ExceptionType
+{
+  FIFOWrite,
+  PairedQuantize,
+  SpeculativeConstants
+};*/
 
-CPUCoreBase *InitJitCore(int core);
-void InitTables(int core);
-CPUCoreBase *GetCore();
+void DoState(PointerWrap& p);
+
+CPUCoreBase* InitJitCore(int core);
+CPUCoreBase* GetCore();
 
 // Debugging
 void WriteProfileResults(const std::string& filename);

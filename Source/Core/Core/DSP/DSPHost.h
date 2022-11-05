@@ -13,6 +13,8 @@
 // core isn't used, for example in an asm/disasm tool, then most of these
 // can be stubbed out.
 
+//namespace DSP
+//{
 namespace DSPHost
 {
 u8 ReadHostMemory(u32 addr);
@@ -23,4 +25,5 @@ bool IsWiiHost();
 void InterruptRequest();
 void CodeLoaded(const u8* ptr, int size);
 void UpdateDebugger();
-}
+}  // namespace Host
+//}  // namespace DSP

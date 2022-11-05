@@ -5,6 +5,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <string>
 
 #include "Common/CommonTypes.h"
@@ -12,34 +13,75 @@
 // You're not meant to keep around SignatureDB objects persistently. Use 'em, throw them away.
 
 class PPCSymbolDB;
+class SignatureDBFormatHandler;
 
 class SignatureDB
 {
-	struct DBFunc
-	{
-		std::string name;
-		u32 size;
-		DBFunc() : size(0)
-		{
-		}
-	};
-
-	// Map from signature to function. We store the DB in this map because it optimizes the
-	// most common operation - lookup. We don't care about ordering anyway.
-	typedef std::map<u32, DBFunc> FuncDB;
-	FuncDB database;
-
 public:
-	// Returns the hash.
-	u32 Add(u32 startAddr, u32 size, const std::string& name);
+  enum class HandlerType
+  {
+    DSY,
+    CSV,
+    MEGA
+  };
+  //explicit SignatureDB(HandlerType handler);
+  //explicit SignatureDB(const std::string& file_path);
 
-	bool Load(const std::string& filename);  // Does not clear. Remember to clear first if that's what you want.
-	bool Save(const std::string& filename);
-	void Clear();
-	void List();
+  void Clear();
+  // Does not clear. Remember to clear first if that's what you want.
+  bool Load(const std::string& file_path);
+  bool Save(const std::string& file_path) const;
+  void List() const;
 
-	void Initialize(PPCSymbolDB *func_db, const std::string& prefix = "");
-	void Apply(PPCSymbolDB *func_db);
+  void Populate(const PPCSymbolDB* func_db, const std::string& filter = "");
+  void Apply(PPCSymbolDB* func_db) const;
 
-	static u32 ComputeCodeChecksum(u32 offsetStart, u32 offsetEnd);
+  bool Add(u32 start_addr, u32 size, const std::string& name);
+
+private:
+  std::unique_ptr<SignatureDBFormatHandler> m_handler;
+};
+
+class SignatureDBFormatHandler
+{
+public:
+  virtual ~SignatureDBFormatHandler();
+
+  virtual void Clear() = 0;
+  virtual bool Load(const std::string& file_path) = 0;
+  virtual bool Save(const std::string& file_path) const = 0;
+  virtual void List() const = 0;
+
+  virtual void Populate(const PPCSymbolDB* func_db, const std::string& filter = "") = 0;
+  virtual void Apply(PPCSymbolDB* func_db) const = 0;
+
+  virtual bool Add(u32 startAddr, u32 size, const std::string& name) = 0;
+};
+
+class HashSignatureDB : public SignatureDBFormatHandler
+{
+public:
+  struct DBFunc
+  {
+    u32 size = 0;
+    std::string name;
+    std::string object_name;
+    std::string object_location;
+  };
+  using FuncDB = std::map<u32, DBFunc>;
+
+  static u32 ComputeCodeChecksum(u32 offsetStart, u32 offsetEnd);
+
+  void Clear() override;
+  void List() const override;
+
+  void Populate(const PPCSymbolDB* func_db, const std::string& filter = "") override;
+  void Apply(PPCSymbolDB* func_db) const override;
+
+  bool Add(u32 startAddr, u32 size, const std::string& name) override;
+
+protected:
+  // Map from signature to function. We store the DB in this map because it optimizes the
+  // most common operation - lookup. We don't care about ordering anyway.
+  FuncDB m_database;
 };

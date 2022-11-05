@@ -7,6 +7,8 @@
 #include "Common/CommonTypes.h"
 
 // Basic code analysis.
+//namespace DSP
+//{
 namespace DSPAnalyzer
 {
 // Useful things to detect:
@@ -14,12 +16,12 @@ namespace DSPAnalyzer
 
 enum
 {
-	CODE_START_OF_INST = 1,
-	CODE_IDLE_SKIP = 2,
-	CODE_LOOP_START = 4,
-	CODE_LOOP_END = 8,
-	CODE_UPDATE_SR = 16,
-	CODE_CHECK_INT = 32,
+  CODE_START_OF_INST = 1,
+  CODE_IDLE_SKIP = 2,
+  CODE_LOOP_START = 4,
+  CODE_LOOP_END = 8,
+  CODE_UPDATE_SR = 16,
+  CODE_CHECK_INT = 32,
 };
 
 // This one should be called every time IRAM changes - which is basically
@@ -33,4 +35,5 @@ void Analyze();
 // Retrieves the flags set during analysis for code in memory.
 u8 GetCodeFlags(u16 address);
 
-}  // namespace DSPAnalyzer
+}  // namespace Analyzer
+//}  // namespace DSP

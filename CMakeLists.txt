@@ -215,20 +215,26 @@ elseif(_ARCH_64 AND (
 	${CMAKE_SYSTEM_PROCESSOR} MATCHES "amd64" OR
 	APPLE
 ))
+    # Common flags for the general builds Ishiiruka wants.
 	set(_M_X86 1)
 	set(_M_X86_64 1)
 	add_definitions(-D_M_X86=1 -D_M_X86_64=1 -msse2)
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fno-pie")
-	if(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
-		CHECK_C_COMPILER_FLAG("-no-pie" NO_PIE_UPSTREAM)
-		if(NO_PIE_UPSTREAM)
-			set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -no-pie")
-		endif()
-		CHECK_C_COMPILER_FLAG("-nopie" NO_PIE_PATCHED)
-		if(NO_PIE_PATCHED)
-			set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nopie")
-		endif()
-	endif()
+
+    # As of 11/04/2022, we don't want to opt out of PIE on macOS
+    # since the JIT that was backported can handle it.
+    if(NOT APPLE)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fno-pie")
+        if(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
+            CHECK_C_COMPILER_FLAG("-no-pie" NO_PIE_UPSTREAM)
+            if(NO_PIE_UPSTREAM)
+                set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -no-pie")
+            endif()
+            CHECK_C_COMPILER_FLAG("-nopie" NO_PIE_PATCHED)
+            if(NO_PIE_PATCHED)
+                set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nopie")
+            endif()
+        endif()
+    endif()
 elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
 	set(_M_ARM 1)
 	set(_M_ARM_64 1)
@@ -323,10 +329,6 @@ if(APPLE)
 	# Linker flags.
 	# Drop unreachable code and data.
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-dead_strip,-dead_strip_dylibs")
-	# Reserve the minimum size for the zero page.
-	# Our JIT requires virtual memory space below 2GB, while the default zero
-	# page on x86_64 is 4GB in size.
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-segalign,0x1000,-pagezero_size,0x1000")
 
 	find_library(APPKIT_LIBRARY AppKit)
 	find_library(APPSERV_LIBRARY ApplicationServices)
