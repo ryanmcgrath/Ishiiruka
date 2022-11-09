@@ -8,7 +8,6 @@
 #include <cstdint>
 
 #include "Common/CommonTypes.h"
-#include "Common/x64Reg.h"
 #include "Core/PowerPC/Jit64Common/BlockCache.h"
 #include "Core/PowerPC/Jit64Common/Jit64AsmCommon.h"
 #include "Core/PowerPC/Jit64Common/TrampolineCache.h"

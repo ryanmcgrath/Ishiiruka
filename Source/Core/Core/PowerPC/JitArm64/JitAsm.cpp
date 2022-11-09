@@ -155,7 +155,7 @@ void JitArm64::GenerateAsm()
 
   // Check the state pointer to see if we are exiting
   // Gets checked on at the end of every slice
-  MOVP2R(X0, CPU::GetStatePtr());
+  MOVP2R(X0, (u64)CPU::GetStatePtr());
   LDR(INDEX_UNSIGNED, W0, X0, 0);
 
   CMP(W0, 0);

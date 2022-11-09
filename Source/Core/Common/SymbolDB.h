@@ -12,6 +12,10 @@
 #include <utility>
 #include <vector>
 
+#ifdef __APPLE__
+#include <set>
+#endif
+
 #include "Common/CommonTypes.h"
 
 struct SCall
@@ -53,6 +57,11 @@ struct Symbol
 	int type;
 	int index; // only used for coloring the disasm view
 	int analyzed;
+
+    // Used only for macOS due to backported JIT.
+#ifdef __APPLE__
+	std::string function_name;
+#endif
 };
 
 enum
@@ -71,7 +80,13 @@ class SymbolDB
 {
 public:
 	typedef std::map<u32, Symbol>  XFuncMap;
+    
+    // Backported JIT for macOS needs this to use an `std::set` internally.
+#ifdef __APPLE__
+    typedef std::map<u32, std::set<Symbol*>> XFuncPtrMap;
+#else
 	typedef std::map<u32, Symbol*> XFuncPtrMap;
+#endif
 
 protected:
 	XFuncMap    functions;
@@ -94,6 +109,15 @@ public:
 	void AddCompleteSymbol(const Symbol& symbol);
 
 	Symbol* GetSymbolFromName(const std::string& name);
+
+    // Backported JIT for macOS needs these due to mainline differences.
+#ifdef __APPLE__
+	Symbol* GetSymbolFromHash(u32 hash);
+    std::vector<Symbol*> GetSymbolsFromName(const std::string& name);
+    std::vector<Symbol*> GetSymbolsFromHash(u32 hash);
+#else
+    // Ishiiruka remains unchanged, as the older JIT does not store `XFuncPtrMap`
+    // as an `std::set` internally.
 	Symbol* GetSymbolFromHash(u32 hash)
 	{
 		XFuncPtrMap::iterator iter = checksumToFunction.find(hash);
@@ -102,6 +126,7 @@ public:
 		else
 			return nullptr;
 	}
+#endif
 
 	const XFuncMap& Symbols() const
 	{

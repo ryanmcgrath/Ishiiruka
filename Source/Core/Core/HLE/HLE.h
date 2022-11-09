@@ -30,6 +30,12 @@ u32 UnPatch(const std::string& patchName);
 void Execute(u32 _CurrentPC, u32 _Instruction);
 
 u32 GetFunctionIndex(u32 em_address);
+
+#ifdef __APPLE__
+// Returns the HLE function index if the address matches the function start
+u32 GetFirstFunctionIndex(u32 address);
+#endif
+
 int GetFunctionTypeByIndex(u32 index);
 int GetFunctionFlagsByIndex(u32 index);
 

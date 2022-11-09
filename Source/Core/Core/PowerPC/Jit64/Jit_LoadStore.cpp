@@ -332,7 +332,9 @@ void Jit64::dcbz(UGeckoInstruction inst)
   JITDISABLE(bJITLoadStoreOff);
   if (SConfig::GetInstance().bDCBZOFF)
     return;
-  FALLBACK_IF(SConfig::GetInstance().bLowDCBZHack);
+  
+  // I don't think Melee needs this, but this can be figured out later if it does.
+  // FALLBACK_IF(SConfig::GetInstance().bLowDCBZHack);
 
   int a = inst.RA;
   int b = inst.RB;

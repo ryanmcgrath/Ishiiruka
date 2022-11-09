@@ -114,8 +114,7 @@ void DSPEmitter::checkExceptions(u32 retval)
   DSPJitRegCache c(m_gpr);
   m_gpr.SaveRegs();
 
-  // mainline: ABI_CallFunction(DSPCore_CheckExceptions);
-  ABI_CallFunction((const void*)DSPCore_CheckExceptions);
+  ABI_CallFunction(DSPCore_CheckExceptions);
   
   MOV(32, R(EAX), Imm32(retval));
   JMP(m_return_dispatcher, true);
@@ -148,8 +147,7 @@ void DSPEmitter::FallBackToInterpreter(UDSPInstruction inst)
   // Fall back to interpreter
   m_gpr.PushRegs();
   _assert_msg_(DSPLLE, op_template->intFunc, "No function for %04x", inst);
-  // mainline: ABI_CallFunctionC16(op_template->intFunc, inst);
-  ABI_CallFunctionC16((const void*)op_template->intFunc, inst);
+  ABI_CallFunctionC16(op_template->intFunc, inst);
   m_gpr.PopRegs();
 }
 
@@ -167,8 +165,7 @@ void DSPEmitter::EmitInstruction(UDSPInstruction inst)
     {
       // Fall back to interpreter
       m_gpr.PushRegs();
-      // mainline: ABI_CallFunctionC16(ext_op_template->intFunc, inst);
-      ABI_CallFunctionC16((const void*)ext_op_template->intFunc, inst);
+      ABI_CallFunctionC16(ext_op_template->intFunc, inst);
       m_gpr.PopRegs();
       INFO_LOG(DSPLLE, "Instruction not JITed(ext part): %04x", inst);
       ext_is_jit = false;
@@ -199,8 +196,7 @@ void DSPEmitter::EmitInstruction(UDSPInstruction inst)
       // need to call the online cleanup function because
       // the writeBackLog gets populated at runtime
       m_gpr.PushRegs();
-      // mainline: ABI_CallFunction(applyWriteBackLog);
-      ABI_CallFunction((const void*)applyWriteBackLog);
+      ABI_CallFunction(applyWriteBackLog);
       m_gpr.PopRegs();
     }
     else
@@ -409,8 +405,7 @@ static void CompileCurrent()
 const u8* DSPEmitter::CompileStub()
 {
   const u8* entryPoint = AlignCode16();
-  // mainline: ABI_CallFunction(CompileCurrent);
-  ABI_CallFunction((const void *)CompileCurrent);
+  ABI_CallFunction(CompileCurrent);
   XOR(32, R(EAX), R(EAX));  // Return 0 cycles executed
   JMP(m_return_dispatcher);
   return entryPoint;

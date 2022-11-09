@@ -28,7 +28,9 @@ GeneralConfigPane::GeneralConfigPane(wxWindow* parent, wxWindowID id) : wxPanel(
 			{PowerPC::CORE_CACHEDINTERPRETER, _("Cached Interpreter (slower)")},
 #ifdef _M_X86_64
 			{PowerPC::CORE_JIT64, _("JIT Recompiler (recommended)")},
+#ifndef __APPLE__
 			{PowerPC::CORE_JITIL64, _("JITIL Recompiler (slow, experimental)")},
+#endif
 #elif defined(_M_ARM_64)
 			{PowerPC::CORE_JITARM64, _("JIT Arm64 (experimental)")},
 #endif

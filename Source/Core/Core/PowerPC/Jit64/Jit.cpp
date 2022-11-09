@@ -1018,7 +1018,7 @@ void Jit64::IntializeSpeculativeConstants()
         MOV(32, PPCSTATE(pc), Imm32(js.blockStart));
         ABI_PushRegistersAndAdjustStack({}, 0);
         ABI_CallFunctionC(JitInterface::CompileExceptionCheck,
-                          static_cast<u32>(JitInterface::ExceptionType::SpeculativeConstants));
+                          static_cast<u32>(JitInterface::ExceptionType::SPECULATIVE_CONSTANTS));
         ABI_PopRegistersAndAdjustStack({}, 0);
         JMP(asm_routines.dispatcher, true);
         SwitchToNearCode();

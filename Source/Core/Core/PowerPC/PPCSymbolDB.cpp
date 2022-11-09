@@ -51,13 +51,15 @@ Symbol* PPCSymbolDB::AddFunction(u32 start_addr)
 
   functions[start_addr] = std::move(symbol);
   Symbol* ptr = &functions[start_addr];
-  ptr->type = Symbol::Type::Function;
+  ptr->type = Symbol::SYMBOL_FUNCTION;
+  // mainline: Symbol differences.
   checksumToFunction[ptr->hash].insert(ptr);
+  //checksumToFunction[symbol.hash] = ptr;
   return ptr;
 }
 
 void PPCSymbolDB::AddKnownSymbol(u32 startAddr, u32 size, const std::string& name,
-                                 Symbol::Type type)
+                                 int type)
 {
   XFuncMap::iterator iter = functions.find(startAddr);
   if (iter != functions.end())
@@ -77,10 +79,12 @@ void PPCSymbolDB::AddKnownSymbol(u32 startAddr, u32 size, const std::string& nam
     tf.name = name;
     tf.type = type;
     tf.address = startAddr;
-    if (tf.type == Symbol::Type::Function)
+    if (tf.type == Symbol::SYMBOL_FUNCTION)
     {
       PPCAnalyst::AnalyzeFunction(startAddr, tf, size);
+      // mainline: Symbol differences.
       checksumToFunction[tf.hash].insert(&functions[startAddr]);
+      //checksumToFunction[tf.hash] = &(functions[startAddr]);
       tf.function_name = GetStrippedFunctionName(name);
     }
     tf.size = size;

@@ -179,7 +179,11 @@ State GetState()
 	return s_state;
 }
 
+#ifdef __APPLE__
+const State* GetStatePtr()
+#else
 const volatile State* GetStatePtr()
+#endif
 {
 	return &s_state;
 }

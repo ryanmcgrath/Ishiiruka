@@ -76,6 +76,7 @@ static uintptr_t RoundPage(uintptr_t addr)
 // (on macOS/M1, it'll be under Rosetta 2).
 void* AllocateExecutableMemory(size_t size, bool low)
 {
+#ifdef __APPLE__
 	int map_flags = MAP_ANON | MAP_PRIVATE;
 
 	// macOS High Sierra has a MAP_JIT implementation that limits to one
@@ -86,71 +87,11 @@ void* AllocateExecutableMemory(size_t size, bool low)
 		map_flags |= MAP_JIT;
 	}
 
-	static uintptr_t map_hint = 0x10000;
+    void* ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0);
 
-	if (low) {
-        	// Due to when this was implemented (and free of an entitlement gate), we need to do a runtime
-        	// check. :(
-        	if (__builtin_available(macOS 10.15.4, *))
-        	{
-            		// The flag value used here is pulled from the Darwin kernel source:
- 			// (MAP32BIT = 0x800)
-            		// https://github.com/apple/darwin-xnu/blob/2ff845c2e033bd0ff64b5b6aa6063a1f8f65aa32/bsd/sys/mman.h#L155
-            		map_flags |= 0x800;
-        	}
-
-        	// Walk memory increments and see if we can find a page to use.
-        	// This is similar to a technique that LuaJIT would use before they had true 64-bit support.
-        	//
-        	// Yes, it feels absurd to be doing this.
-        	int olderr = errno;
-        	int retry = 0;
-
-        	for (;;) {
-            		void *p = mmap((void *)map_hint, size, PROT_READ | PROT_WRITE | PROT_EXEC, map_flags, -1, 0);
-
-			if ((uintptr_t)p >= 0x10000 && (uintptr_t)p + size < 0x80000000)
-			{
-                		map_hint = (uintptr_t)p + size;
-                		errno = olderr;
-                		//PanicAlert("macOS: Found Memory Base! %p", map_hint);
-                		return p;
-            		}
-
-           		 // If mmap didn't fail, and is not within our low window, unmap whatever it mapped.
-            		if (p != MAP_FAILED)
-                		munmap(p, size);
-
-            		// This is an arbitary number.
-            		if (retry == 50) {
-                		PanicAlert("Failed to allocate below the 2GB boundary. %p", map_hint);
-                		break;
-            		}
-
-            		retry += 1;
-            		map_hint += 0x10000;
-        	}
-    	}
-    
-    	void* ptr = mmap(
-        	nullptr,
-        	size,
-        	PROT_READ | PROT_WRITE | PROT_EXEC,
-        	map_flags,
-        	-1,
-        	0
-    	);
-    
-    	if (ptr == MAP_FAILED) {
-        	ptr = nullptr;
-        	PanicAlert("Failed to allocate executable memory.");
-    	}
-
-    	return ptr;
-}
+    if (ptr == MAP_FAILED)
+        ptr = nullptr;
 #else
-void* AllocateExecutableMemory(size_t size, bool low)
-{
 #if defined(_WIN32)
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 #else
@@ -202,6 +143,7 @@ void* AllocateExecutableMemory(size_t size, bool low)
 	if ((u64)ptr >= 0x80000000 && low == true)
 		PanicAlert("Executable memory ended up above 2GB!");
 #endif
+#endif // ifdef __APPLE__
 
 	return ptr;
 }

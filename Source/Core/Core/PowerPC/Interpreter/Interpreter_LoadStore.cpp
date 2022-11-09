@@ -6,7 +6,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Logging/Log.h"
 #include "Common/MsgHandler.h"
-#include "Common/Swap.h"
+//#include "Common/Swap.h"
 
 #include "Core/ConfigManager.h"
 #include "Core/PowerPC/Interpreter/Interpreter.h"
@@ -371,8 +371,10 @@ void Interpreter::dcbz(UGeckoInstruction inst)
 
   u32 dcbz_addr = Helper_Get_EA_X(inst);
   // Hack to stop dcbz/dcbi over low MEM1 trashing memory.
-  if (SConfig::GetInstance().bLowDCBZHack && (dcbz_addr < 0x80008000) && (dcbz_addr >= 0x80000000))
-    return;
+  // Note from @ryanmcgrath: I do not believe Melee uses this, and Slippi isn't concerned about
+  // other games... so we'll just ignore this check rather than backport anything with `bLowDCBZHack`.
+  //if (SConfig::GetInstance().bLowDCBZHack && (dcbz_addr < 0x80008000) && (dcbz_addr >= 0x80000000))
+  //  return;
 
   // TODO: Implement some sort of L2 emulation.
   PowerPC::ClearCacheLine(dcbz_addr & (~31));

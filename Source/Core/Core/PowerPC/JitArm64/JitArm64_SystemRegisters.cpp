@@ -255,12 +255,14 @@ void JitArm64::mfspr(UGeckoInstruction inst)
 
     LDR(INDEX_UNSIGNED, WA, PPC_REG, PPCSTATE_OFF(downcount));
     m_float_emit.SCVTF(SC, WA);
-    m_float_emit.LDR(32, INDEX_UNSIGNED, SD, Xg,
-                     offsetof(CoreTiming::Globals, last_OC_factor_inverted));
+    // mainline: m_float_emit.LDR(32, INDEX_UNSIGNED, SD, Xg,
+    //                 offsetof(CoreTiming::g_last_OC_factor_inverted));
+    m_float_emit.LDR(32, INDEX_UNSIGNED, SD, Xg, &CoreTiming::g_last_OC_factor_inverted);
     m_float_emit.FMUL(SC, SC, SD);
     m_float_emit.FCVTS(Xresult, SC, ROUND_Z);
 
-    LDP(INDEX_SIGNED, XA, XB, Xg, offsetof(CoreTiming::Globals, global_timer));
+    // mainline: LDP(INDEX_SIGNED, XA, XB, Xg, offsetof(CoreTiming::Globals, global_timer));
+    LDP(INDEX_SIGNED, XA, XB, Xg, &CoreTiming::g_global_timer);
     SXTW(XB, WB);
     SUB(Xresult, XB, Xresult);
     ADD(Xresult, Xresult, XA);
@@ -271,7 +273,8 @@ void JitArm64::mfspr(UGeckoInstruction inst)
     // into a block with only 50 downcount remaining, some games don't function correctly, such as
     // Karaoke Party Revolution, which won't get past the loading screen.
 
-    LDP(INDEX_SIGNED, XA, XB, Xg, offsetof(CoreTiming::Globals, fake_TB_start_value));
+    // mainline: LDP(INDEX_SIGNED, XA, XB, Xg, offsetof(CoreTiming::Globals, fake_TB_start_value));
+    LDP(INDEX_SIGNED, XA, XB, Xg, &CoreTiming::g_fake_TB_start_value);
     SUB(Xresult, Xresult, XB);
 
     // a / 12 = (a * 0xAAAAAAAAAAAAAAAB) >> 67

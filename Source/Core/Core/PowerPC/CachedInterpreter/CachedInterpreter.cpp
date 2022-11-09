@@ -108,7 +108,7 @@ void CachedInterpreter::ExecuteOneBlock()
 
 void CachedInterpreter::Run()
 {
-  while (CPU::GetState() == Core::CORE_RUN)
+  while (CPU::GetState() == CPU::CPU_RUNNING)
   {
     // Start new timing slice
     // NOTE: Exceptions may change PC
@@ -206,7 +206,8 @@ void CachedInterpreter::Jit(u32 address)
   {
     js.downcountAmount += ops[i].opinfo->numCycles;
 
-    u32 function = HLE::GetFirstFunctionIndex(ops[i].address);
+    //u32 function = HLE::GetFirstFunctionIndex(ops[i].address);
+    u32 function = HLE::GetFunctionIndex(ops[i].address);
     if (function != 0)
     {
       int type = HLE::GetFunctionTypeByIndex(function);

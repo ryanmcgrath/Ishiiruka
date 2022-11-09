@@ -122,6 +122,32 @@ void XEmitter::ReserveCodeSpace(int bytes)
 		*code++ = 0xCC;
 }
 
+#ifdef __APPLE__
+const u8* XEmitter::AlignCodeTo(size_t alignment)
+{
+  _assert_msg_(DYNA_REC, alignment != 0 && (alignment & (alignment - 1)) == 0,
+               "Alignment must be power of two");
+  u64 c = reinterpret_cast<u64>(code) & (alignment - 1);
+  if (c)
+    ReserveCodeSpace(static_cast<int>(alignment - c));
+  return code;
+}
+
+const u8* XEmitter::AlignCode4()
+{
+  return AlignCodeTo(4);
+}
+
+const u8* XEmitter::AlignCode16()
+{
+  return AlignCodeTo(16);
+}
+
+const u8* XEmitter::AlignCodePage()
+{
+  return AlignCodeTo(4096);
+}
+#else
 const u8* XEmitter::AlignCode4()
 {
 	int c = int((u64)code & 3);
@@ -145,6 +171,7 @@ const u8* XEmitter::AlignCodePage()
 		ReserveCodeSpace(4096 - c);
 	return code;
 }
+#endif
 
 // This operation modifies flags; check to see the flags are locked.
 // If the flags are locked, we should immediately and loudly fail before
@@ -421,6 +448,18 @@ void XEmitter::CALL(const void* fnptr)
 	Write8(0xE8);
 	Write32(u32(distance));
 }
+
+#ifdef __APPLE__
+FixupBranch XEmitter::CALL()
+{
+  FixupBranch branch;
+  branch.type = 1;
+  branch.ptr = code + 5;
+  Write8(0xE8);
+  Write32(0);
+  return branch;
+}
+#endif
 
 FixupBranch XEmitter::J(bool force5bytes)
 {
@@ -889,8 +928,20 @@ void XEmitter::WriteMOVBE(int bits, u8 op, X64Reg reg, const OpArg& arg)
 void XEmitter::MOVBE(int bits, X64Reg dest, const OpArg& src) { WriteMOVBE(bits, 0xF0, dest, src); }
 void XEmitter::MOVBE(int bits, const OpArg& dest, X64Reg src) { WriteMOVBE(bits, 0xF1, src, dest); }
 
+#ifdef __APPLE__
+void XEmitter::LoadAndSwap(int size, X64Reg dst, const OpArg& src, bool sign_extend, MovInfo* info)
+#else
 void XEmitter::LoadAndSwap(int size, X64Reg dst, const OpArg& src, bool sign_extend)
+#endif
 {
+#ifdef __APPLE__
+  if (info)
+  {
+    info->address = GetWritableCodePtr();
+    info->nonAtomicSwapStore = false;
+  }
+#endif
+
 	switch (size)
 	{
 	case 8:
@@ -926,6 +977,33 @@ void XEmitter::LoadAndSwap(int size, X64Reg dst, const OpArg& src, bool sign_ext
 	}
 }
 
+// This block is separated entirely as it became too confusing otherwise.
+// (Their return types differ due to macOS using a backported JIT)
+#ifdef __APPLE__
+void XEmitter::SwapAndStore(int size, const OpArg& dst, X64Reg src, MovInfo* info)
+{
+  if (cpu_info.bMOVBE)
+  {
+    if (info)
+    {
+      info->address = GetWritableCodePtr();
+      info->nonAtomicSwapStore = false;
+    }
+    MOVBE(size, dst, src);
+  }
+  else
+  {
+    BSWAP(size, src);
+    if (info)
+    {
+      info->address = GetWritableCodePtr();
+      info->nonAtomicSwapStore = true;
+      info->nonAtomicSwapStoreSrc = src;
+    }
+    MOV(size, dst, R(src));
+  }
+}
+#else
 u8* XEmitter::SwapAndStore(int size, const OpArg& dst, X64Reg src)
 {
 	u8* mov_location = GetWritableCodePtr();
@@ -941,6 +1019,7 @@ u8* XEmitter::SwapAndStore(int size, const OpArg& dst, X64Reg src)
 	}
 	return mov_location;
 }
+#endif
 
 
 void XEmitter::LEA(int bits, X64Reg dest, OpArg src)
@@ -1316,6 +1395,78 @@ void XEmitter::CMP_or_TEST(int bits, const OpArg& a1, const OpArg& a2)
 		WriteNormalOp(bits, nrmCMP, a1, a2);
 	}
 }
+
+#ifdef __APPLE__
+void XEmitter::MOV_sum(int bits, X64Reg dest, const OpArg& a1, const OpArg& a2)
+{
+  // This stomps on flags, so ensure they aren't locked
+  _dbg_assert_(DYNA_REC, !flags_locked);
+
+  // Zero shortcuts (note that this can generate no code in the case where a1 == dest && a2 == zero
+  // or a2 == dest && a1 == zero)
+  if (a1.IsZero())
+  {
+    if (!a2.IsSimpleReg() || a2.GetSimpleReg() != dest)
+    {
+      MOV(bits, R(dest), a2);
+    }
+    return;
+  }
+  if (a2.IsZero())
+  {
+    if (!a1.IsSimpleReg() || a1.GetSimpleReg() != dest)
+    {
+      MOV(bits, R(dest), a1);
+    }
+    return;
+  }
+
+  // If dest == a1 or dest == a2 we can simplify this
+  if (a1.IsSimpleReg() && a1.GetSimpleReg() == dest)
+  {
+    ADD(bits, R(dest), a2);
+    return;
+  }
+
+  if (a2.IsSimpleReg() && a2.GetSimpleReg() == dest)
+  {
+    ADD(bits, R(dest), a1);
+    return;
+  }
+
+  // TODO: 32-bit optimizations may apply to other bit sizes (confirm)
+  if (bits == 32)
+  {
+    if (a1.IsImm() && a2.IsImm())
+    {
+      MOV(32, R(dest), Imm32(a1.Imm32() + a2.Imm32()));
+      return;
+    }
+
+    if (a1.IsSimpleReg() && a2.IsSimpleReg())
+    {
+      LEA(32, dest, MRegSum(a1.GetSimpleReg(), a2.GetSimpleReg()));
+      return;
+    }
+
+    if (a1.IsSimpleReg() && a2.IsImm())
+    {
+      LEA(32, dest, MDisp(a1.GetSimpleReg(), a2.Imm32()));
+      return;
+    }
+
+    if (a1.IsImm() && a2.IsSimpleReg())
+    {
+      LEA(32, dest, MDisp(a2.GetSimpleReg(), a1.Imm32()));
+      return;
+    }
+  }
+
+  // Fallback
+  MOV(bits, R(dest), a1);
+  ADD(bits, R(dest), a2);
+}
+#endif
 
 void XEmitter::IMUL(int bits, X64Reg regOp, const OpArg& a1, const OpArg& a2)
 {

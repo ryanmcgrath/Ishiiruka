@@ -8,6 +8,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/Intrinsics.h"
 #include "Common/MathUtil.h"
+#include "Common/x64ABI.h"
 #include "Core/HW/MMIO.h"
 #include "Core/HW/Memmap.h"
 #include "Core/PowerPC/Gekko.h"

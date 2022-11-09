@@ -15,11 +15,15 @@ enum
 	GATHER_PIPE_SIZE = 32
 };
 
+#ifdef __APPLE__
+extern u8* g_gather_pipe_ptr;
+#else
 // More room for the fastmodes
 alignas(32) extern u8 m_gatherPipe[GATHER_PIPE_SIZE * 16];
 
 // pipe counter
 extern u32 m_gatherPipeCount;
+#endif
 
 // Init
 void Init();

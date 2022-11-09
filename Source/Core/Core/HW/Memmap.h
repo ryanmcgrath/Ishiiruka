@@ -10,6 +10,10 @@
 #include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
 
+#ifdef __APPLE__
+#include "Core/PowerPC/PowerPC.h"
+#endif
+
 // Enable memory checks in the Debug/DebugFast builds, but NOT in release
 #if defined(_DEBUG) || defined(DEBUGFAST)
 #define ENABLE_MEM_CHECK
@@ -61,11 +65,13 @@ enum
 	EXRAM_SIZE = 0x04000000,
 	EXRAM_MASK = EXRAM_SIZE - 1,
 
+#ifndef __APPLE__
 	ADDR_MASK_HW_ACCESS = 0x0c000000,
 	ADDR_MASK_MEM1 = 0x20000000,
 
 #if _ARCH_32
 	MEMVIEW32_MASK = 0x3FFFFFFF,
+#endif
 #endif
 };
 
@@ -88,6 +94,25 @@ u8* GetPointer(const u32 address);
 void CopyFromEmu(void* data, u32 address, size_t size);
 void CopyToEmu(u32 address, const void* data, size_t size);
 void Memset(u32 address, u8 value, size_t size);
+
+// Used by the backported JIT that macOS needs.
+//
+// The interface for this module is roughly the same between Mainline/Ishiiruka, but the implementations
+// differ due to the JIT differences. This keeps the same header structure, but the implementations have
+// been split into `Memmap.cpp` (default, Ishiiruka) and `Memmap_MacOS.cpp` (macOS only, mainline).
+#ifdef __APPLE__
+void UpdateLogicalMemory(const PowerPC::BatTable& dbat_table);
+u8 Read_U8(u32 address);
+u16 Read_U16(u32 address);
+u32 Read_U32(u32 address);
+u64 Read_U64(u32 address);
+void Write_U8(u8 var, u32 address);
+void Write_U16(u16 var, u32 address);
+void Write_U32(u32 var, u32 address);
+void Write_U64(u64 var, u32 address);
+void Write_U32_Swap(u32 var, u32 address);
+void Write_U64_Swap(u64 var, u32 address);
+#else
 u8 Read_U8(const u32 address);
 u16 Read_U16(const u32 address);
 u32 Read_U32(const u32 address);
@@ -98,6 +123,7 @@ void Write_U32(const u32 var, const u32 address);
 void Write_U64(const u64 var, const u32 address);
 void Write_U32_Swap(const u32 var, const u32 address);
 void Write_U64_Swap(const u64 var, const u32 address);
+#endif
 
 // Templated functions for byteswapped copies.
 template <typename T>

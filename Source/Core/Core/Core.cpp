@@ -1005,6 +1005,11 @@ void SetOnStoppedCallback(StoppedCallbackFunc callback)
 	s_on_stopped_callback = callback;
 }
 
+bool WantsDeterminism()
+{
+  return g_want_determinism;
+}
+
 void UpdateWantDeterminism(bool initial)
 {
 	// For now, this value is not itself configurable.  Instead, individual

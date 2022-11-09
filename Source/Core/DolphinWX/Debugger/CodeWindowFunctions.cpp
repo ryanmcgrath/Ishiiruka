@@ -211,7 +211,7 @@ void CCodeWindow::OnSymbolsMenu(wxCommandEvent& event)
 		}
 		else
 		{
-			g_symbolDB.LoadMap(existing_map_file);
+			//g_symbolDB.LoadMap(existing_map_file);
 			Parent->StatusBarMessage("Loaded symbols from '%s'", existing_map_file.c_str());
 		}
 		HLE::PatchFunctions();
@@ -226,7 +226,7 @@ void CCodeWindow::OnSymbolsMenu(wxCommandEvent& event)
 
 		if (!path.IsEmpty())
 		{
-			g_symbolDB.LoadMap(WxStrToStr(path));
+			//g_symbolDB.LoadMap(WxStrToStr(path));
 			Parent->StatusBarMessage("Loaded symbols from '%s'", WxStrToStr(path).c_str());
 		}
 		HLE::PatchFunctions();
@@ -242,7 +242,7 @@ void CCodeWindow::OnSymbolsMenu(wxCommandEvent& event)
 
 		if (!path.IsEmpty())
 		{
-			g_symbolDB.LoadMap(WxStrToStr(path), true);
+			//g_symbolDB.LoadMap(WxStrToStr(path), true);
 			Parent->StatusBarMessage("Loaded symbols from '%s'", WxStrToStr(path).c_str());
 		}
 		HLE::PatchFunctions();
@@ -250,7 +250,7 @@ void CCodeWindow::OnSymbolsMenu(wxCommandEvent& event)
 	}
 	break;
 	case IDM_SAVEMAPFILE:
-		g_symbolDB.SaveMap(writable_map_file);
+		//g_symbolDB.SaveMap(writable_map_file);
 		break;
 	case IDM_SAVE_MAP_FILE_AS:
 	{
@@ -259,12 +259,12 @@ void CCodeWindow::OnSymbolsMenu(wxCommandEvent& event)
 			_("Dolphin Map File (*.map)") + "|*.map|" + wxGetTranslation(wxALL_FILES),
 			wxFD_SAVE | wxFD_OVERWRITE_PROMPT, this);
 
-		if (!path.IsEmpty())
-			g_symbolDB.SaveMap(WxStrToStr(path));
+		//if (!path.IsEmpty())
+		//	g_symbolDB.SaveMap(WxStrToStr(path));
 	}
 	break;
 	case IDM_SAVE_MAP_FILE_WITH_CODES:
-		g_symbolDB.SaveMap(writable_map_file, true);
+		//g_symbolDB.SaveMap(writable_map_file, true);
 		break;
 
 	case IDM_RENAME_SYMBOLS:

@@ -313,6 +313,7 @@ void Jit64::mfspr(UGeckoInstruction inst)
     MOV(64, R(RDX), Imm64(0xAAAAAAAAAAAAAAABULL));
     MUL(64, R(RDX));
     MOV(64, R(RAX), MDisp(RCX, offsetof(CoreTiming::Globals, fake_TB_start_value)));
+    // MOV(64, R(RAX), MDisp(RCX, &CoreTiming::g_fake_TB_start_value));
     SHR(64, R(RDX), Imm8(3));
     ADD(64, R(RAX), R(RDX));
     MOV(64, PPCSTATE(spr[SPR_TL]), R(RAX));

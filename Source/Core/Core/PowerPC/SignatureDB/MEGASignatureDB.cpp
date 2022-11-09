@@ -175,7 +175,7 @@ void MEGASignatureDB::Apply(PPCSymbolDB* symbol_db) const
   symbol_db->Index();
 }
 
-void MEGASignatureDB::Populate(const PPCSymbolDB* func_db, const std::string& filter)
+void MEGASignatureDB::Initialize(const PPCSymbolDB* func_db, const std::string& filter)
 {
   ERROR_LOG(OSHLE, "MEGA database can't be populated yet.");
 }

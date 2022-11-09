@@ -25,11 +25,25 @@ class PointerWrap;
 namespace CoreTiming
 {
 // These really shouldn't be global, but jit64 accesses them directly
+// Note that the JIT used on macOS expects these to match mainline's `Globals`, hence
+// the difference here.
+#ifdef __APPLE__
+struct Globals
+{
+  s64 global_timer;
+  int slice_length;
+  u64 fake_TB_start_value;
+  u64 fake_TB_start_ticks;
+  float last_OC_factor_inverted;
+};
+extern Globals g;
+#else
 extern s64 g_global_timer;
 extern u64 g_fake_TB_start_value;
 extern u64 g_fake_TB_start_ticks;
 extern int g_slice_length;
 extern float g_last_OC_factor_inverted;
+#endif
 
 // CoreTiming begins at the boundary of timing slice -1. An initial call to Advance() is
 // required to end slice -1 and start slice 0 before the first cycle of code is executed.

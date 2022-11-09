@@ -237,7 +237,7 @@ void Reset()
 
 void ScheduleInvalidateCacheThreadSafe(u32 address)
 {
-  if (CPU::GetState() == Core::CORE_RUN)
+  if (CPU::GetState() == CPU::CPU_RUNNING)
   {
     CoreTiming::ScheduleEvent(0, s_invalidate_cache_thread_safe, address,
                               CoreTiming::FromThread::NON_CPU);

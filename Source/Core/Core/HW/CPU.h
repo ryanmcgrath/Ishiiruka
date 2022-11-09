@@ -57,7 +57,14 @@ State GetState();
 
 // Direct State Access (Raw pointer for embedding into JIT Blocks)
 // Strictly read-only. A lock is required to change the value.
+//
+// (Mainline no longer marks this as volatile, but it's kept for Ishiiruka purposes - I assume
+// that there is some reason it's marked as volatile, perhaps to stop things from mucking with it - RYMC)
+#ifdef __APPLE__
+const State* GetStatePtr();
+#else
 const volatile State* GetStatePtr();
+#endif
 
 // Locks the CPU Thread (waiting for it to become idle).
 // While this lock is held, the CPU Thread will not perform any action so it is safe to access

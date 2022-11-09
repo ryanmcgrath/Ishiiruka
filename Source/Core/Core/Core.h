@@ -87,6 +87,7 @@ bool PauseAndLock(bool doLock, bool unpauseOnUnlock = true);
 typedef void(*StoppedCallbackFunc)(void);
 void SetOnStoppedCallback(StoppedCallbackFunc callback);
 
+bool WantsDeterminism();
 // Run on the Host thread when the factors change. [NOT THREADSAFE]
 void UpdateWantDeterminism(bool initial = false);
 

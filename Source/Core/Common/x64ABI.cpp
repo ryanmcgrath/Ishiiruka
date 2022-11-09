@@ -2,8 +2,8 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
-#include "Common/CommonTypes.h"
 #include "Common/x64ABI.h"
+#include "Common/CommonTypes.h"
 #include "Common/x64Emitter.h"
 
 using namespace Gen;
@@ -80,6 +80,7 @@ void XEmitter::ABI_PopRegistersAndAdjustStack(BitSet32 mask, size_t rsp_alignmen
 	}
 }
 
+#ifndef __APPLE__
 // Common functions
 void XEmitter::ABI_CallFunction(const void* func)
 {
@@ -185,6 +186,22 @@ void XEmitter::ABI_CallFunctionRR(const void* func, X64Reg reg1, X64Reg reg2)
 	ABI_CallFunction(func);
 }
 
+void XEmitter::ABI_CallFunctionAC(int bits, const void* func, const Gen::OpArg& arg1, u32 param2)
+{
+	if (!arg1.IsSimpleReg(ABI_PARAM1))
+		MOV(bits, R(ABI_PARAM1), arg1);
+	MOV(32, R(ABI_PARAM2), Imm32(param2));
+	ABI_CallFunction(func);
+}
+
+void XEmitter::ABI_CallFunctionA(int bits, const void* func, const Gen::OpArg& arg1)
+{
+	if (!arg1.IsSimpleReg(ABI_PARAM1))
+		MOV(bits, R(ABI_PARAM1), arg1);
+	ABI_CallFunction(func);
+}
+#endif // ifndef Apple
+
 void XEmitter::MOVTwo(int bits, Gen::X64Reg dst1, Gen::X64Reg src1, s32 offset1, Gen::X64Reg dst2, Gen::X64Reg src2)
 {
 	if (dst1 == src2 && dst2 == src1)
@@ -216,19 +233,3 @@ void XEmitter::MOVTwo(int bits, Gen::X64Reg dst1, Gen::X64Reg src1, s32 offset1,
 			ADD(bits, R(dst1), Imm32(offset1));
 	}
 }
-
-void XEmitter::ABI_CallFunctionAC(int bits, const void* func, const Gen::OpArg& arg1, u32 param2)
-{
-	if (!arg1.IsSimpleReg(ABI_PARAM1))
-		MOV(bits, R(ABI_PARAM1), arg1);
-	MOV(32, R(ABI_PARAM2), Imm32(param2));
-	ABI_CallFunction(func);
-}
-
-void XEmitter::ABI_CallFunctionA(int bits, const void* func, const Gen::OpArg& arg1)
-{
-	if (!arg1.IsSimpleReg(ABI_PARAM1))
-		MOV(bits, R(ABI_PARAM1), arg1);
-	ABI_CallFunction(func);
-}
-

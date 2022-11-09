@@ -430,7 +430,7 @@ static void Memcheck(u32 address, u32 var, bool write, size_t size)
 {
   if (PowerPC::memchecks.HasAny())
   {
-    TMemCheck* mc = PowerPC::memchecks.GetMemCheck(address, size);
+    TMemCheck* mc = PowerPC::memchecks.GetMemCheck(address); //, size);
     if (mc)
     {
       if (CPU::IsStepping())
@@ -438,7 +438,7 @@ static void Memcheck(u32 address, u32 var, bool write, size_t size)
         // Disable when stepping so that resume works.
         return;
       }
-      mc->num_hits++;
+      mc->numHits++;
       bool pause = mc->Action(&PowerPC::debug_interface, var, address, write, size, PC);
       if (pause)
       {

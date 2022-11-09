@@ -71,9 +71,9 @@ void SignatureDB::List() const
   m_handler->List();
 }
 
-void SignatureDB::Populate(const PPCSymbolDB* func_db, const std::string& filter)
+void SignatureDB::Initialize(const PPCSymbolDB* func_db, const std::string& filter)
 {
-  m_handler->Populate(func_db, filter);
+  m_handler->Initialize(func_db, filter);
 }
 
 void SignatureDB::Apply(PPCSymbolDB* func_db) const
@@ -143,7 +143,7 @@ void HashSignatureDB::Apply(PPCSymbolDB* symbol_db) const
   symbol_db->Index();
 }
 
-void HashSignatureDB::Populate(const PPCSymbolDB* symbol_db, const std::string& filter)
+void HashSignatureDB::Initialize(const PPCSymbolDB* symbol_db, const std::string& filter)
 {
   for (const auto& symbol : symbol_db->Symbols())
   {

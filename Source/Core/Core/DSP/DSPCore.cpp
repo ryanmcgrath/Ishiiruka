@@ -27,6 +27,7 @@
 SDSP g_dsp;
 DSPBreakpoints g_dsp_breakpoints;
 static DSPCoreState core_state = DSPCORE_STOP;
+u16 g_cycles_left = 0;
 bool g_init_hax = false;
 std::unique_ptr<DSPEmitter> g_dsp_jit;
 std::unique_ptr<DSPCaptureLogger> g_dsp_cap;

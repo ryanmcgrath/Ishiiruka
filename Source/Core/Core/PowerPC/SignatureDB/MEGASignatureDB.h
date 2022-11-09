@@ -48,7 +48,9 @@ public:
   void List() const override;
 
   void Apply(PPCSymbolDB* symbol_db) const override;
-  void Populate(const PPCSymbolDB* func_db, const std::string& filter = "") override;
+  
+  // Renamed from `Populate` to match Ishiiruka conventions.
+  void Initialize(const PPCSymbolDB* func_db, const std::string& filter = "") override;
 
   bool Add(u32 startAddr, u32 size, const std::string& name) override;
 

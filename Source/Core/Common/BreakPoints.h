@@ -117,6 +117,11 @@ public:
 	{
 		return !m_MemChecks.empty();
 	}
+
+    // Used only on macOS in the backported JIT.
+#ifdef __APPLE__
+    bool OverlapsMemcheck(u32 address, u32 length);
+#endif
 };
 
 class Watches

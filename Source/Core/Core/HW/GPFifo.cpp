@@ -27,42 +27,85 @@ namespace GPFifo
 // the same function could use both methods. Compile 2 different versions of each such block?
 
 // More room for the fastmodes
+#ifdef __APPLE__
+alignas(32) static u8 s_gather_pipe[GATHER_PIPE_SIZE * 16];
+
+// pipe pointer
+u8* g_gather_pipe_ptr = s_gather_pipe;
+
+static size_t GetGatherPipeCount() { return g_gather_pipe_ptr - s_gather_pipe; }
+static void SetGatherPipeCount(size_t size) { g_gather_pipe_ptr = s_gather_pipe + size; }
+#else
 alignas(32) u8 m_gatherPipe[GATHER_PIPE_SIZE * 16];
 
 // pipe counter
 u32 m_gatherPipeCount = 0;
+#endif
 
 void DoState(PointerWrap& p)
 {
+#ifdef __APPLE__
+    p.Do(s_gather_pipe);
+    u32 pipe_count = static_cast<u32>(GetGatherPipeCount());
+    p.Do(pipe_count);
+    SetGatherPipeCount(pipe_count);
+#else
 	p.Do(m_gatherPipe);
 	p.Do(m_gatherPipeCount);
+#endif
 }
 
 void Init()
 {
 	ResetGatherPipe();
+
+#ifdef __APPLE__
+    memset(s_gather_pipe, 0, sizeof(s_gather_pipe));
+#else
 	memset(m_gatherPipe, 0, sizeof(m_gatherPipe));
+#endif
 }
 
 bool IsEmpty()
 {
+#ifdef __APPLE__
+    return GetGatherPipeCount() == 0;
+#else
 	return m_gatherPipeCount == 0;
+#endif
 }
 
 void ResetGatherPipe()
 {
+#ifdef __APPLE__
+    SetGatherPipeCount(0);
+#else
 	m_gatherPipeCount = 0;
+#endif
 }
 
 static void UpdateGatherPipe()
 {
+#ifdef __APPLE__
+    size_t pipe_count = GetGatherPipeCount();
+    size_t cnt;
+#else
 	u32 cnt;
-	u8* curMem = Memory::GetPointer(ProcessorInterface::Fifo_CPUWritePointer);
-	for (cnt = 0; m_gatherPipeCount >= GATHER_PIPE_SIZE; cnt += GATHER_PIPE_SIZE)
-	{
+#endif
+
+    u8* curMem = Memory::GetPointer(ProcessorInterface::Fifo_CPUWritePointer);
 		// copy the GatherPipe
+#ifdef __APPLE__
+    for (cnt = 0; pipe_count >= GATHER_PIPE_SIZE; cnt += GATHER_PIPE_SIZE)
+    {
+        memcpy(curMem, s_gather_pipe + cnt, GATHER_PIPE_SIZE);
+        pipe_count -= GATHER_PIPE_SIZE;
+#else
+    for (cnt = 0; m_gatherPipeCount >= GATHER_PIPE_SIZE; cnt += GATHER_PIPE_SIZE)
+    {
 		memcpy(curMem, m_gatherPipe + cnt, GATHER_PIPE_SIZE);
 		m_gatherPipeCount -= GATHER_PIPE_SIZE;
+#endif
 
 		// increase the CPUWritePointer
 		if (ProcessorInterface::Fifo_CPUWritePointer == ProcessorInterface::Fifo_CPUEnd)
@@ -77,15 +120,24 @@ static void UpdateGatherPipe()
 		}
 
 		CommandProcessor::GatherPipeBursted();
-	}
+    }
 
 	// move back the spill bytes
+#ifdef __APPLE__
+    memmove(s_gather_pipe, s_gather_pipe + cnt, pipe_count);
+    SetGatherPipeCount(pipe_count);
+#else
 	memmove(m_gatherPipe, m_gatherPipe + cnt, m_gatherPipeCount);
+#endif
 }
 
 void FastCheckGatherPipe()
 {
+#ifdef __APPLE__
+    if (GetGatherPipeCount() >= GATHER_PIPE_SIZE)
+#else
 	if (m_gatherPipeCount >= GATHER_PIPE_SIZE)
+#endif
 	{
 		UpdateGatherPipe();
 	}
@@ -93,7 +145,11 @@ void FastCheckGatherPipe()
 
 void CheckGatherPipe()
 {
+#ifdef __APPLE__
+    if (GetGatherPipeCount() >= GATHER_PIPE_SIZE)
+#else
 	if (m_gatherPipeCount >= GATHER_PIPE_SIZE)
+#endif
 	{
 		UpdateGatherPipe();
 
@@ -128,29 +184,52 @@ void Write64(const u64 value)
 
 void FastWrite8(const u8 value)
 {
+#ifdef __APPLE__
+    *g_gather_pipe_ptr = value;
+    g_gather_pipe_ptr += sizeof(u8);
+#else
 	m_gatherPipe[m_gatherPipeCount] = value;
 	++m_gatherPipeCount;
+#endif
 }
 
 void FastWrite16(u16 value)
 {
 	value = Common::swap16(value);
+
+#ifdef __APPLE__
+    std::memcpy(g_gather_pipe_ptr, &value, sizeof(u16));
+    g_gather_pipe_ptr += sizeof(u16);
+#else
 	std::memcpy(&m_gatherPipe[m_gatherPipeCount], &value, sizeof(u16));
 	m_gatherPipeCount += sizeof(u16);
+#endif
 }
 
 void FastWrite32(u32 value)
 {
 	value = Common::swap32(value);
+
+#ifdef __APPLE__
+    std::memcpy(g_gather_pipe_ptr, &value, sizeof(u32));
+    g_gather_pipe_ptr += sizeof(u32);
+#else
 	std::memcpy(&m_gatherPipe[m_gatherPipeCount], &value, sizeof(u32));
 	m_gatherPipeCount += sizeof(u32);
+#endif
 }
 
 void FastWrite64(u64 value)
 {
 	value = Common::swap64(value);
+
+#ifdef __APPLE__
+    std::memcpy(g_gather_pipe_ptr, &value, sizeof(u64));
+    g_gather_pipe_ptr += sizeof(u64);
+#else
 	std::memcpy(&m_gatherPipe[m_gatherPipeCount], &value, sizeof(u64));
 	m_gatherPipeCount += sizeof(u64);
+#endif
 }
 
 }  // end of namespace GPFifo

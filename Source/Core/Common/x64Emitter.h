@@ -9,41 +9,17 @@
 #include <cstddef>
 #include <cstring>
 #include <functional>
+#include <type_traits>
 
 #include "Common/Assert.h"
 #include "Common/BitSet.h"
 #include "Common/CodeBlock.h"
 #include "Common/CommonTypes.h"
+#include "Common/x64ABI.h"
+#include "Common/x64Reg.h"
 
 namespace Gen
 {
-
-enum X64Reg
-{
-	EAX = 0, EBX = 3, ECX = 1, EDX = 2,
-	ESI = 6, EDI = 7, EBP = 5, ESP = 4,
-
-	RAX = 0, RBX = 3, RCX = 1, RDX = 2,
-	RSI = 6, RDI = 7, RBP = 5, RSP = 4,
-	R8 = 8, R9 = 9, R10 = 10, R11 = 11,
-	R12 = 12, R13 = 13, R14 = 14, R15 = 15,
-
-	AL = 0, BL = 3, CL = 1, DL = 2,
-	SIL = 6, DIL = 7, BPL = 5, SPL = 4,
-	AH = 0x104, BH = 0x107, CH = 0x105, DH = 0x106,
-
-	AX = 0, BX = 3, CX = 1, DX = 2,
-	SI = 6, DI = 7, BP = 5, SP = 4,
-
-	XMM0 = 0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
-	XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15,
-
-	YMM0 = 0, YMM1, YMM2, YMM3, YMM4, YMM5, YMM6, YMM7,
-	YMM8, YMM9, YMM10, YMM11, YMM12, YMM13, YMM14, YMM15,
-
-	INVALID_REG = 0xFFFFFFFF
-};
-
 enum CCFlags
 {
 	CC_O = 0,
@@ -126,6 +102,18 @@ enum FloatOp {
 
 class XEmitter;
 
+// This is explicitly only used by the backported JIT used for macOS.
+#ifdef __APPLE__
+// Information about a generated MOV op
+struct MovInfo final
+{
+  u8* address;
+  bool nonAtomicSwapStore;
+  // valid iff nonAtomicSwapStore is true
+  X64Reg nonAtomicSwapStoreSrc;
+};
+#endif
+
 // RIP addressing does not benefit from micro op fusion on Core arch
 struct OpArg
 {
@@ -168,6 +156,15 @@ struct OpArg
 	{
 		return IsSimpleReg() && GetSimpleReg() == reg;
 	}
+
+    // Backported for macOS using mainline JIT.
+#ifdef __APPLE__
+    bool IsZero() const { return IsImm() && offset == 0; }
+    OpArg AsImm64() const { _dbg_assert_(DYNA_REC, IsImm()); return OpArg((u64)offset, SCALE_IMM64); }
+    OpArg AsImm32() const { _dbg_assert_(DYNA_REC, IsImm()); return OpArg((u32)offset, SCALE_IMM32); }
+    OpArg AsImm16() const { _dbg_assert_(DYNA_REC, IsImm()); return OpArg((u16)offset, SCALE_IMM16); }
+    OpArg AsImm8() const { _dbg_assert_(DYNA_REC, IsImm()); return OpArg((u8)offset, SCALE_IMM8); }
+#endif
 
 	int GetImmBits() const
 	{
@@ -312,6 +309,11 @@ public:
 
 	void SetCodePtr(u8* ptr);
 	void ReserveCodeSpace(int bytes);
+
+#ifdef __APPLE__
+    const u8* AlignCodeTo(size_t alignment);
+#endif
+
 	const u8* AlignCode4();
 	const u8* AlignCode16();
 	const u8* AlignCodePage();
@@ -367,6 +369,11 @@ public:
 #undef CALL
 #endif
 	void CALL(const void* fnptr);
+
+#ifdef __APPLE__
+    FixupBranch CALL();
+#endif
+
 	void CALLptr(OpArg arg);
 
 	FixupBranch J_CC(CCFlags conditionCode, bool force5bytes = false);
@@ -457,6 +464,10 @@ public:
 
 	void CMP_or_TEST(int bits, const OpArg& a1, const OpArg& a2);
 
+#ifdef __APPLE__
+    void MOV_sum(int bits, X64Reg dest, const OpArg& a1, const OpArg& a2);
+#endif
+
 	// Are these useful at all? Consider removing.
 	void XCHG(int bits, const OpArg& a1, const OpArg& a2);
 	void XCHG_AHAL();
@@ -471,10 +482,19 @@ public:
 	// Available only on Atom or >= Haswell so far. Test with cpu_info.bMOVBE.
 	void MOVBE(int bits, X64Reg dest, const OpArg& src);
 	void MOVBE(int bits, const OpArg& dest, X64Reg src);
+
+    // macOS uses a backported JIT, which needs MovInfo considerations here.
+#ifdef __APPLE__
+    void LoadAndSwap(int size, X64Reg dst, const OpArg& src, bool sign_extend = false, MovInfo* info = nullptr);
+
+    // Note return type difference (MovInfo does the job here)
+    void SwapAndStore(int size, const OpArg& dst, X64Reg src, MovInfo* info = nullptr);
+#else
 	void LoadAndSwap(int size, X64Reg dst, const OpArg& src, bool sign_extend = false);
 	u8* SwapAndStore(int size, const OpArg& dst, X64Reg src);
-
-	// Available only on AMD >= Phenom or Intel >= Haswell
+#endif
+	
+    // Available only on AMD >= Phenom or Intel >= Haswell
 	void LZCNT(int bits, X64Reg dest, const OpArg& src);
 	// Note: this one is actually part of BMI1
 	void TZCNT(int bits, X64Reg dest, const OpArg& src);
@@ -897,6 +917,151 @@ public:
 
 	void RDTSC();
 
+#ifdef __APPLE__
+  // Utility functions
+  // The difference between this and CALL is that this aligns the stack
+  // where appropriate.
+  template <typename FunctionPointer>
+  void ABI_CallFunction(FunctionPointer func)
+  {
+    static_assert(std::is_pointer<FunctionPointer>() &&
+                      std::is_function<std::remove_pointer_t<FunctionPointer>>(),
+                  "Supplied type must be a function pointer.");
+
+    const void* ptr = reinterpret_cast<const void*>(func);
+    const u64 address = reinterpret_cast<u64>(ptr);
+    const u64 distance = address - (reinterpret_cast<u64>(code) + 5);
+
+    if (distance >= 0x0000000080000000ULL && distance < 0xFFFFFFFF80000000ULL)
+    {
+      // Far call
+      MOV(64, R(RAX), Imm64(address));
+      CALLptr(R(RAX));
+    }
+    else
+    {
+      CALL(ptr);
+    }
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionC16(FunctionPointer func, u16 param1)
+  {
+    MOV(32, R(ABI_PARAM1), Imm32(param1));
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionCC16(FunctionPointer func, u32 param1, u16 param2)
+  {
+    MOV(32, R(ABI_PARAM1), Imm32(param1));
+    MOV(32, R(ABI_PARAM2), Imm32(param2));
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionC(FunctionPointer func, u32 param1)
+  {
+    MOV(32, R(ABI_PARAM1), Imm32(param1));
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionCC(FunctionPointer func, u32 param1, u32 param2)
+  {
+    MOV(32, R(ABI_PARAM1), Imm32(param1));
+    MOV(32, R(ABI_PARAM2), Imm32(param2));
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionCP(FunctionPointer func, u32 param1, const void* param2)
+  {
+    MOV(32, R(ABI_PARAM1), Imm32(param1));
+    MOV(64, R(ABI_PARAM2), Imm64(reinterpret_cast<u64>(param2)));
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionCCC(FunctionPointer func, u32 param1, u32 param2, u32 param3)
+  {
+    MOV(32, R(ABI_PARAM1), Imm32(param1));
+    MOV(32, R(ABI_PARAM2), Imm32(param2));
+    MOV(32, R(ABI_PARAM3), Imm32(param3));
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionCCP(FunctionPointer func, u32 param1, u32 param2, const void* param3)
+  {
+    MOV(32, R(ABI_PARAM1), Imm32(param1));
+    MOV(32, R(ABI_PARAM2), Imm32(param2));
+    MOV(64, R(ABI_PARAM3), Imm64(reinterpret_cast<u64>(param3)));
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionCCCP(FunctionPointer func, u32 param1, u32 param2, u32 param3,
+                            const void* param4)
+  {
+    MOV(32, R(ABI_PARAM1), Imm32(param1));
+    MOV(32, R(ABI_PARAM2), Imm32(param2));
+    MOV(32, R(ABI_PARAM3), Imm32(param3));
+    MOV(64, R(ABI_PARAM4), Imm64(reinterpret_cast<u64>(param4)));
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionPC(FunctionPointer func, const void* param1, u32 param2)
+  {
+    MOV(64, R(ABI_PARAM1), Imm64(reinterpret_cast<u64>(param1)));
+    MOV(32, R(ABI_PARAM2), Imm32(param2));
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionPPC(FunctionPointer func, const void* param1, const void* param2, u32 param3)
+  {
+    MOV(64, R(ABI_PARAM1), Imm64(reinterpret_cast<u64>(param1)));
+    MOV(64, R(ABI_PARAM2), Imm64(reinterpret_cast<u64>(param2)));
+    MOV(32, R(ABI_PARAM3), Imm32(param3));
+    ABI_CallFunction(func);
+  }
+
+  // Pass a register as a parameter.
+  template <typename FunctionPointer>
+  void ABI_CallFunctionR(FunctionPointer func, X64Reg reg1)
+  {
+    if (reg1 != ABI_PARAM1)
+      MOV(32, R(ABI_PARAM1), R(reg1));
+    ABI_CallFunction(func);
+  }
+
+  // Pass two registers as parameters.
+  template <typename FunctionPointer>
+  void ABI_CallFunctionRR(FunctionPointer func, X64Reg reg1, X64Reg reg2)
+  {
+    MOVTwo(64, ABI_PARAM1, reg1, 0, ABI_PARAM2, reg2);
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionAC(int bits, FunctionPointer func, const Gen::OpArg& arg1, u32 param2)
+  {
+    if (!arg1.IsSimpleReg(ABI_PARAM1))
+      MOV(bits, R(ABI_PARAM1), arg1);
+    MOV(32, R(ABI_PARAM2), Imm32(param2));
+    ABI_CallFunction(func);
+  }
+
+  template <typename FunctionPointer>
+  void ABI_CallFunctionA(int bits, FunctionPointer func, const Gen::OpArg& arg1)
+  {
+    if (!arg1.IsSimpleReg(ABI_PARAM1))
+      MOV(bits, R(ABI_PARAM1), arg1);
+    ABI_CallFunction(func);
+  }
+#else
 	// Utility functions
 	// The difference between this and CALL is that this aligns the stack
 	// where appropriate.
@@ -921,6 +1086,7 @@ public:
 	// Pass a register as a parameter.
 	void ABI_CallFunctionR(const void* func, X64Reg reg1);
 	void ABI_CallFunctionRR(const void* func, X64Reg reg1, X64Reg reg2);
+#endif
 
 	// Helper method for the above, or can be used separately.
 	void MOVTwo(int bits, X64Reg dst1, X64Reg src1, s32 offset, X64Reg dst2, X64Reg src2);
@@ -946,7 +1112,11 @@ public:
 	void ABI_CallLambdaC(const std::function<T(Args...)>* f, u32 p1)
 	{
 		auto trampoline = &XEmitter::CallLambdaTrampoline<T, Args...>;
+#ifdef __APPLE__
+        ABI_CallFunctionPC(trampoline, reinterpret_cast<const void*>(f), p1);
+#else
 		ABI_CallFunctionPC((void*)trampoline, const_cast<void*>((const void*)f), p1);
+#endif
 	}
 };  // class XEmitter
 

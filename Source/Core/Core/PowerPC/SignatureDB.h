@@ -33,7 +33,8 @@ public:
   bool Save(const std::string& file_path) const;
   void List() const;
 
-  void Populate(const PPCSymbolDB* func_db, const std::string& filter = "");
+  // Renamed from `Populate` to match pre-existing Ishiiruka conventions.
+  void Initialize(const PPCSymbolDB* func_db, const std::string& filter = "");
   void Apply(PPCSymbolDB* func_db) const;
 
   bool Add(u32 start_addr, u32 size, const std::string& name);
@@ -52,7 +53,8 @@ public:
   virtual bool Save(const std::string& file_path) const = 0;
   virtual void List() const = 0;
 
-  virtual void Populate(const PPCSymbolDB* func_db, const std::string& filter = "") = 0;
+  // Renamed from `Populate` to match Ishiiruka conventions.
+  virtual void Initialize(const PPCSymbolDB* func_db, const std::string& filter = "") = 0;
   virtual void Apply(PPCSymbolDB* func_db) const = 0;
 
   virtual bool Add(u32 startAddr, u32 size, const std::string& name) = 0;
@@ -75,7 +77,8 @@ public:
   void Clear() override;
   void List() const override;
 
-  void Populate(const PPCSymbolDB* func_db, const std::string& filter = "") override;
+  // Renamed from `Populate` to match Ishiiruka conventions.
+  void Initialize(const PPCSymbolDB* func_db, const std::string& filter = "") override;
   void Apply(PPCSymbolDB* func_db) const override;
 
   bool Add(u32 startAddr, u32 size, const std::string& name) override;

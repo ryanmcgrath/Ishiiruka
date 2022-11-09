@@ -105,7 +105,6 @@ set(SRCS	ActionReplay.cpp
 			HW/GCPadEmu.cpp
 			HW/GPFifo.cpp
 			HW/HW.cpp
-			HW/Memmap.cpp
 			HW/MemoryInterface.cpp
 			HW/MMIO.cpp
 			HW/ProcessorInterface.cpp
@@ -181,8 +180,10 @@ set(SRCS	ActionReplay.cpp
 # unnecessary performance degrading on non-Apple platforms due to differences in 
 # mainline and Ishiiruka.
 if(APPLE)
+    set(SRCS ${SRCS} HW/Memmap_MacOS.cpp)
     add_subdirectory(PowerPC PowerPC)
 else()
+    set(SRCS ${SRCS} HW/Memmap.cpp)
     add_subdirectory(PowerPC PowerPC)
 endif()
 

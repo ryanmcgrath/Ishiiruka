@@ -212,6 +212,29 @@ TMemCheck* MemChecks::GetMemCheck(u32 address)
 	return nullptr;
 }
 
+// Apple-devices use a backported JIT that needs this to exist, but we segment it off here
+// to make it clear that this is not used in general Ishiiruka.
+#ifdef __APPLE__
+bool MemChecks::OverlapsMemcheck(u32 address, u32 length)
+{
+  if (!HasAny())
+    return false;
+  u32 page_end_suffix = length - 1;
+  u32 page_end_address = address | page_end_suffix;
+  for (TMemCheck memcheck : m_MemChecks)
+  {
+    if (((memcheck.StartAddress | page_end_suffix) == page_end_address ||
+         (memcheck.EndAddress | page_end_suffix) == page_end_address) ||
+        ((memcheck.StartAddress | page_end_suffix) < page_end_address &&
+         (memcheck.EndAddress | page_end_suffix) > page_end_address))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+#endif
+
 bool TMemCheck::Action(DebugInterface* debug_interface, u32 iValue, u32 addr, bool write, int size,
 	u32 pc)
 {

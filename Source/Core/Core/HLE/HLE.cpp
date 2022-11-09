@@ -133,6 +133,17 @@ u32 GetFunctionIndex(u32 addr)
 	return (iter != s_original_instructions.end()) ? iter->second : 0;
 }
 
+#ifdef __APPLE__
+u32 GetFirstFunctionIndex(u32 address)
+{
+  u32 index = GetFunctionIndex(address);
+  auto first = std::find_if(
+      s_original_instructions.begin(), s_original_instructions.end(),
+      [=](const auto& entry) { return entry.second == index && entry.first < address; });
+  return first == std::end(s_original_instructions) ? index : 0;
+}
+#endif
+
 int GetFunctionTypeByIndex(u32 index)
 {
 	return OSPatches[index].type;
