@@ -53,10 +53,10 @@ pub(crate) enum TrackId {
 }
 
 /// Given the filename of a melee music track, return the associated track ID
-pub(crate) fn get_track_id_by_name(track_name: &str) -> Option<TrackId> {
+pub(crate) fn get_track_id_by_filename(track_filename: &str) -> Option<TrackId> {
     use self::TrackId::*;
 
-    match track_name {
+    match track_filename {
         "menu01.hps" => Some(Menu1),
         "menu3.hps" => Some(Menu2),
         "menu02.hps" => Some(Lottery),

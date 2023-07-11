@@ -1,27 +1,27 @@
 use crate::scenes::scene_ids::*;
-use crate::tracks::{get_track_id_by_name, TrackId};
+use crate::tracks::{get_track_id_by_filename, TrackId};
 use crate::Result;
+use anyhow::anyhow;
+use gc_gcm::{FsNode::File, GcmFile};
 use std::collections::HashMap;
+use std::path::Path;
 
 /// Produces a hashmap containing offsets and lengths of .hps files contained within the iso
 /// These can be looked up by TrackId
-pub(crate) fn create_track_map(iso: &mut std::fs::File) -> Result<HashMap<TrackId, (usize, usize)>> {
-    Ok(picori::Gcm::from_binary(iso)?
-        .fst()
-        .files()
-        .filter_map(|(_, entry)| match entry {
-            picori::gcm::fst::Entry::File {
-                name,
-                index: _,
-                offset,
-                size,
-            } => match get_track_id_by_name(&name) {
-                Some(id) => Some((id, (offset as usize, size as usize))),
+pub(crate) fn create_track_map(iso_path: impl AsRef<Path>) -> Result<HashMap<TrackId, (u32, u32)>> {
+    Ok(GcmFile::open(iso_path)
+        .map_err(|_| anyhow!("unable to open or parse the iso file"))?
+        .filesystem
+        .files
+        .into_iter()
+        .filter_map(|entry| match entry {
+            File { name, offset, size } => match get_track_id_by_filename(&name) {
+                Some(id) => Some((id, (offset, size))),
                 None => None,
             },
             _ => None,
         })
-        .collect::<HashMap<TrackId, (usize, usize)>>())
+        .collect())
 }
 
 /// Returns a tuple containing a randomly selected menu track tournament track

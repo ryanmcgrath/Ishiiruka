@@ -108,7 +108,7 @@ impl Jukebox {
 
         std::thread::Builder::new()
             .name("JukeboxMusicPlayer".to_string())
-            .spawn(move || Self::play_music(m_p_ram, iso_path, get_dolphin_volume, music_thread_rx, melee_event_rx))?;
+            .spawn(move || Self::play_music(m_p_ram, &iso_path, get_dolphin_volume, music_thread_rx, melee_event_rx))?;
 
         Ok(Self {
             channel_senders: [message_dispatcher_thread_tx, music_thread_tx],
@@ -158,16 +158,16 @@ impl Jukebox {
     /// accordingly.
     fn play_music(
         m_p_ram: usize,
-        iso_path: String,
+        iso_path: &str,
         get_dolphin_volume: impl Fn() -> f32,
         music_thread_rx: Receiver<JukeboxEvent>,
         melee_event_rx: Receiver<MeleeEvent>,
     ) -> Result<()> {
         let mut iso = std::fs::File::open(iso_path)?;
 
-        tracing::info!(target: Log::Jukebox, "Scanning disc for tracks...");
-        let tracks = utils::create_track_map(&mut iso)?;
-        tracing::info!(target: Log::Jukebox, "Loaded {} tracks!", tracks.len());
+        tracing::info!(target: Log::Jukebox, "Loading track metadata...");
+        let tracks = utils::create_track_map(iso_path)?;
+        tracing::info!(target: Log::Jukebox, "Loaded metadata for {} tracks!", tracks.len());
 
         let (_stream, stream_handle) = OutputStream::try_default()?;
         let sink = Sink::try_new(&stream_handle)?;
@@ -192,7 +192,7 @@ impl Jukebox {
                 if let Some(&(offset, size)) = track {
                     // Seek the location of the track on the ISO
                     iso.seek(std::io::SeekFrom::Start(offset as u64))?;
-                    let mut bytes = vec![0; size];
+                    let mut bytes = vec![0; size as usize];
                     iso.read_exact(&mut bytes)?;
 
                     // Parse data from the ISO into pcm samples

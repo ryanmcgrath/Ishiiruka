@@ -13,8 +13,8 @@ publish = false
 anyhow = "1.0.71"
 dolphin-logger = { path = "../logger" }
 fastrand = "2.0.0"
+gc-gcm = "0.10.0"
 hps_decode = "0.1.1"
-picori = { workspace = true }
 process-memory = "0.5.0"
 rodio = "0.17.1"
 tracing = { workspace = true }
