@@ -1,57 +1,25 @@
 use crate::scenes::scene_ids::*;
-use crate::tracks::{identify_coefficients, TrackId};
+use crate::tracks::{get_track_id_by_name, TrackId};
 use crate::Result;
 use std::collections::HashMap;
-use std::io::prelude::*;
 
 /// Produces a hashmap containing offsets and lengths of .hps files contained within the iso
 /// These can be looked up by TrackId
 pub(crate) fn create_track_map(iso: &mut std::fs::File) -> Result<HashMap<TrackId, (usize, usize)>> {
-    let file_size = iso.metadata()?.len();
-
-    // Locate .hps sections of the iso by scanning it 60mb at a time
-    let chunk_size = 1024 * 1024 * 60;
-    let chunk_count = file_size / chunk_size + 1;
-    let mut buffer = vec![0; chunk_size as usize];
-
-    // Locations (offsets) of all .hps files on the iso
-    let locations = (0..chunk_count)
-        .map(|chunk_index| {
-            // Since the last chunk won't have as many bytes as the rest of
-            // them, we need to clear the buffer before we load data into it off
-            // the disk
-            if chunk_index == chunk_count - 1 {
-                buffer.fill(0);
-            }
-
-            let chunk_start_address = chunk_size * chunk_index;
-            iso.seek(std::io::SeekFrom::Start(chunk_start_address))?;
-            iso.read(&mut buffer)?;
-
-            Ok(memchr::memmem::find_iter(&buffer, b" HALPST\0")
-                .map(|address| chunk_start_address as usize + address)
-                .collect::<Vec<_>>())
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    // Using known 4-byte sequences from .hps files in the OST, identify each of
-    // the locations, and insert them into a hashmap so we can look them up
-    // using TrackIds later on
-    Ok(locations
-        .into_iter()
-        .flatten()
-        .filter_map(|location| {
-            Some({
-                // read the first 8 bytes of the left channel coefficients for
-                // the .hps file at `location`
-                let coef_offset = 0x20;
-                iso.seek(std::io::SeekFrom::Start((location as u64) + coef_offset)).ok()?;
-                let mut buf = [0; 4];
-                iso.read_exact(&mut buf).ok()?;
-                // Identify which TrackId is associated and populate the hashmap
-                let (id, size) = identify_coefficients(buf)?;
-                (id, (location, size))
-            })
+    Ok(picori::Gcm::from_binary(iso)?
+        .fst()
+        .files()
+        .filter_map(|(_, entry)| match entry {
+            picori::gcm::fst::Entry::File {
+                name,
+                index: _,
+                offset,
+                size,
+            } => match get_track_id_by_name(&name) {
+                Some(id) => Some((id, (offset as usize, size as usize))),
+                None => None,
+            },
+            _ => None,
         })
         .collect::<HashMap<TrackId, (usize, usize)>>())
 }

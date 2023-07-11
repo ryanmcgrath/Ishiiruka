@@ -818,6 +818,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
+name = "picori"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecfbd999797be4c017fdd60911068f04a7c880bd89ca7e188bc4b979df49b278"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "pin-project-lite"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1046,7 +1055,7 @@ dependencies = [
  "dolphin-logger",
  "fastrand 2.0.0",
  "hps_decode",
- "memchr",
+ "picori",
  "process-memory",
  "rodio",
  "tracing",
